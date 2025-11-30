@@ -1,0 +1,15 @@
+streamlit
+pandas
+numpy
+opencv-python
+Pillow
+PyPDF2
+python-docx
+bcrypt
+plotly
+sqlite3
+zipfile36
+tempfile
+shutil
+base64
+webbrowser
