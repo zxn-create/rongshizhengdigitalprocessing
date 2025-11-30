@@ -12,8 +12,6 @@ import shutil
 import base64
 import time
 import pandas as pd
-from docx import Document
-import PyPDF2
 
 st.set_page_config(
     page_title="图像处理实验室 - 融思政平台",
@@ -22,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 现代化实验室CSS
+# 现代化实验室CSS（删除文件预览相关样式）
 st.markdown("""
 <style>
 :root {
@@ -84,8 +82,6 @@ st.markdown("""
     box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
 
-
-
  /* 现代化按钮 - 红白渐变悬浮效果 */
 .stButton button {
     background: linear-gradient(135deg, #ffffff, #fef2f2);
@@ -145,10 +141,6 @@ st.markdown("""
     background: linear-gradient(135deg, #fefaf0 0%, #fdf6e3 50%, #faf0d9 100%);
 }
 
-
-
-
-
 /* 侧边栏样式 - 米色渐变 */
 section[data-testid="stSidebar"] {
     background: linear-gradient(135deg, #fdf6e3 0%, #faf0d9 50%, #f5e6c8 100%) !important;
@@ -167,30 +159,6 @@ section[data-testid="stSidebar"] {
 
 .file-item:hover {
     background: #e9ecef;
-}
-
-/* 文件预览样式 */
-.file-preview {
-    background: white;
-    border: 2px solid #e9ecef;
-    border-radius: 10px;
-    padding: 15px;
-    margin: 10px 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.preview-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.preview-content {
-    max-height: 400px;
-    overflow: auto;
 }
 
 /* 提交成功特效 */
@@ -572,146 +540,10 @@ def get_experiment_description(number):
     }
     return descriptions.get(number, "完成指定的图像处理实验")
 
-def read_pdf_file(file_path):
-    """读取PDF文件内容"""
-    try:
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-            return text
-    except Exception as e:
-        return f"读取PDF文件时出错: {str(e)}"
-
-def read_docx_file(file_path):
-    """读取DOCX文件内容"""
-    try:
-        doc = Document(file_path)
-        text = ""
-        for paragraph in doc.paragraphs:
-            text += paragraph.text + "\n"
-        return text
-    except Exception as e:
-        return f"读取DOCX文件时出错: {str(e)}"
-
-def preview_file_content(file_path, filename):
-    """预览文件内容"""
-    try:
-        file_ext = filename.lower().split('.')[-1]
-        
-        # 图像文件预览
-        if file_ext in ['jpg', 'jpeg', 'png', 'bmp', 'gif']:
-            image = Image.open(file_path)
-            st.image(image, caption=filename, use_container_width=True)
-        
-        # 文本文件预览
-        elif file_ext in ['txt', 'py', 'java', 'cpp', 'c', 'h', 'html', 'css', 'js', 'md']:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            st.code(content, language=file_ext if file_ext in ['py', 'java', 'cpp', 'c', 'html', 'css', 'js'] else None)
-        
-        # PDF文件预览
-        elif file_ext == 'pdf':
-            st.markdown(f"**📄 PDF文件预览: {filename}**")
-            
-            # 显示PDF基本信息
-            try:
-                with open(file_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    num_pages = len(pdf_reader.pages)
-                    st.info(f"📊 PDF信息: 共 {num_pages} 页")
-                    
-                    # 显示PDF内容
-                    st.markdown("**📖 内容预览:**")
-                    pdf_text = read_pdf_file(file_path)
-                    if pdf_text.strip():
-                        with st.expander("查看PDF文本内容", expanded=False):
-                            st.text_area("PDF内容", pdf_text, height=300, key=f"pdf_{filename}")
-                    else:
-                        st.warning("无法提取PDF文本内容，可能为扫描版PDF")
-                    
-                    # 提供PDF页面预览
-                    st.markdown("**🖼️ 页面预览:**")
-                    col1, col2, col3 = st.columns(3)
-                    
-                    # 显示前3页的预览
-                    for i, page_num in enumerate(range(min(3, num_pages))):
-                        with col1 if i == 0 else col2 if i == 1 else col3:
-                            # 这里可以添加PDF页面转图像的功能
-                            # 目前先显示页面信息
-                            st.markdown(f"**第 {page_num + 1} 页**")
-                            st.info(f"页面 {page_num + 1}/{num_pages}")
-                            
-            except Exception as e:
-                st.error(f"处理PDF文件时出错: {str(e)}")
-            
-            # 提供PDF下载
-            with open(file_path, "rb") as f:
-                pdf_data = f.read()
-                st.download_button(
-                    label="📥 下载PDF文件",
-                    data=pdf_data,
-                    file_name=filename,
-                    mime="application/pdf",
-                    key=f"download_pdf_{filename}",
-                    use_container_width=True
-                )
-        
-        # DOC/DOCX文件预览
-        elif file_ext in ['doc', 'docx']:
-            st.markdown(f"**📝 Word文档预览: {filename}**")
-            
-            try:
-                if file_ext == 'docx':
-                    # 读取DOCX文件内容
-                    doc_text = read_docx_file(file_path)
-                    
-                    if doc_text.strip():
-                        st.markdown("**📖 文档内容:**")
-                        st.text_area("文档内容", doc_text, height=400, key=f"docx_{filename}")
-                    else:
-                        st.warning("文档内容为空或无法读取")
-                        
-                    # 显示文档统计信息
-                    word_count = len(doc_text.split())
-                    line_count = len(doc_text.split('\n'))
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("字数统计", f"{word_count} 字")
-                    with col2:
-                        st.metric("行数统计", f"{line_count} 行")
-                        
-                else:
-                    st.info("📋 .doc格式文件需要特殊处理，建议转换为.docx格式以获得更好的预览效果")
-                    
-            except Exception as e:
-                st.error(f"处理Word文档时出错: {str(e)}")
-            
-            # 提供下载
-            with open(file_path, "rb") as f:
-                doc_data = f.read()
-                st.download_button(
-                    label="📥 下载Word文档",
-                    data=doc_data,
-                    file_name=filename,
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document" if file_ext == 'docx' else "application/msword",
-                    key=f"download_doc_{filename}",
-                    use_container_width=True
-                )
-        
-        # 不支持预览的文件类型
-        else:
-            st.info(f"📄 文件类型 '{file_ext}' 不支持在线预览，请下载查看")
-            
-    except Exception as e:
-        st.error(f"预览文件时出错: {str(e)}")
-
 # 初始化数据库
 init_experiment_db()
 
-# 其他图像处理函数保持不变...
+# 修复图像处理函数
 def create_sample_image():
     """创建示例图像"""
     img = np.ones((400, 600, 3), dtype=np.uint8) * 255
@@ -730,30 +562,45 @@ def create_sample_image():
     return img
 
 def apply_edge_detection(image, operator):
-    """应用边缘检测"""
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image
-    
-    if operator == "Sobel":
-        sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-        sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-        processed = cv2.magnitude(sobelx, sobely)
-    elif operator == "Canny":
-        processed = cv2.Canny(gray, 50, 150)
-    else:  # Laplacian
-        processed = cv2.Laplacian(gray, cv2.CV_64F)
-    
-    return cv2.normalize(processed, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    """应用边缘检测 - 修复版本"""
+    try:
+        # 确保图像是3通道的
+        if len(image.shape) == 2:
+            gray = image
+            image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            image_bgr = image
+        
+        if operator == "Sobel":
+            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+            processed = cv2.magnitude(sobelx, sobely)
+        elif operator == "Canny":
+            processed = cv2.Canny(gray, 50, 150)
+        else:  # Laplacian
+            processed = cv2.Laplacian(gray, cv2.CV_64F)
+        
+        # 归一化并转换为3通道
+        processed = cv2.normalize(processed, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        processed_bgr = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
+        
+        return processed_bgr
+    except Exception as e:
+        st.error(f"边缘检测错误: {str(e)}")
+        return image
 
 def apply_filter(image, filter_type, kernel_size):
-    """应用滤波器"""
-    if filter_type == "中值滤波":
-        return cv2.medianBlur(image, kernel_size)
-    else:  # 均值滤波
-        kernel = np.ones((kernel_size, kernel_size), np.float32) / (kernel_size * kernel_size)
-        return cv2.filter2D(image, -1, kernel)
+    """应用滤波器 - 修复版本"""
+    try:
+        if filter_type == "中值滤波":
+            return cv2.medianBlur(image, kernel_size)
+        else:  # 均值滤波
+            kernel = np.ones((kernel_size, kernel_size), np.float32) / (kernel_size * kernel_size)
+            return cv2.filter2D(image, -1, kernel)
+    except Exception as e:
+        st.error(f"滤波处理错误: {str(e)}")
+        return image
 
 def provide_download_button(image, filename, button_text):
     """提供下载按钮"""
@@ -776,108 +623,153 @@ def provide_download_button(image, filename, button_text):
         st.error(f"下载功能出错: {str(e)}")
 
 def apply_operator(image, operator):
-    """应用微分算子"""
-    # 转换为灰度图像
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    """应用微分算子 - 修复版本"""
+    try:
+        # 确保图像是3通道的
+        if len(image.shape) == 2:
+            gray = image
+            image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            image_bgr = image
 
-    if operator == "Sobel (一阶)":
-        # Sobel算子
-        sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-        sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-        processed = cv2.magnitude(sobelx, sobely).astype(np.uint8)
+        if operator == "Sobel (一阶)":
+            # Sobel算子
+            sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+            sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+            processed = cv2.magnitude(sobelx, sobely).astype(np.uint8)
 
-    elif operator == "Prewitt (一阶)":
-        # Prewitt算子
-        kernelx = np.array([[1, 1, 1], [0, 0, 0], [-1, -1, -1]])
-        kernely = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])
-        prewittx = cv2.filter2D(gray.astype(np.float32), -1, kernelx)
-        prewitty = cv2.filter2D(gray.astype(np.float32), -1, kernely)
-        processed = cv2.magnitude(prewittx, prewitty).astype(np.uint8)
+        elif operator == "Prewitt (一阶)":
+            # Prewitt算子
+            kernelx = np.array([[1, 1, 1], [0, 0, 0], [-1, -1, -1]])
+            kernely = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]])
+            prewittx = cv2.filter2D(gray.astype(np.float32), -1, kernelx)
+            prewitty = cv2.filter2D(gray.astype(np.float32), -1, kernely)
+            processed = cv2.magnitude(prewittx, prewitty).astype(np.uint8)
 
-    elif operator == "Roberts (一阶)":
-        # Roberts算子
-        kernelx = np.array([[1, 0], [0, -1]])
-        kernely = np.array([[0, 1], [-1, 0]])
-        robertsx = cv2.filter2D(gray.astype(np.float32), -1, kernelx)
-        robertsy = cv2.filter2D(gray.astype(np.float32), -1, kernely)
-        processed = cv2.magnitude(robertsx, robertsy).astype(np.uint8)
+        elif operator == "Roberts (一阶)":
+            # Roberts算子
+            kernelx = np.array([[1, 0], [0, -1]])
+            kernely = np.array([[0, 1], [-1, 0]])
+            robertsx = cv2.filter2D(gray.astype(np.float32), -1, kernelx)
+            robertsy = cv2.filter2D(gray.astype(np.float32), -1, kernely)
+            processed = cv2.magnitude(robertsx, robertsy).astype(np.uint8)
 
-    elif operator == "Laplacian (二阶)":
-        # Laplacian算子
-        processed = cv2.Laplacian(gray, cv2.CV_64F).astype(np.uint8)
+        elif operator == "Laplacian (二阶)":
+            # Laplacian算子
+            processed = cv2.Laplacian(gray, cv2.CV_64F)
+            processed = cv2.convertScaleAbs(processed)
 
-    # 将处理后的图像转换回BGR格式以便显示
-    processed = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
+        # 将处理后的图像转换回BGR格式以便显示
+        processed_bgr = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
 
-    return processed
+        return processed_bgr
+    except Exception as e:
+        st.error(f"算子处理错误: {str(e)}")
+        return image
 
 def apply_piecewise_linear_transformation(image, a, b, c, d):
-    """应用分段线性变换"""
-    # 转换为灰度图像
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    """应用分段线性变换 - 修复版本"""
+    try:
+        # 确保图像是3通道的
+        if len(image.shape) == 2:
+            gray = image
+            image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            image_bgr = image
 
-    # 将图像归一化到[0, 1]
-    gray_normalized = gray.astype(np.float32) / 255.0
+        # 将图像归一化到[0, 1]
+        gray_normalized = gray.astype(np.float32) / 255.0
 
-    # 分段线性变换
-    transformed = np.zeros_like(gray_normalized)
-    transformed[gray_normalized < a] = gray_normalized[gray_normalized < a] * (b / a)
-    transformed[(gray_normalized >= a) & (gray_normalized < c)] = gray_normalized[(gray_normalized >= a) & (
-            gray_normalized < c)] * ((d - b) / (c - a)) + b
-    transformed[gray_normalized >= c] = gray_normalized[gray_normalized >= c] * ((1 - d) / (1 - c)) + d
+        # 分段线性变换
+        transformed = np.zeros_like(gray_normalized)
+        transformed[gray_normalized < a] = gray_normalized[gray_normalized < a] * (b / a)
+        transformed[(gray_normalized >= a) & (gray_normalized < c)] = gray_normalized[(gray_normalized >= a) & (
+                gray_normalized < c)] * ((d - b) / (c - a)) + b
+        transformed[gray_normalized >= c] = gray_normalized[gray_normalized >= c] * ((1 - d) / (1 - c)) + d
 
-    # 将图像恢复到[0, 255]
-    transformed = (transformed * 255).astype(np.uint8)
+        # 将图像恢复到[0, 255]
+        transformed = (transformed * 255).astype(np.uint8)
 
-    # 将变换后的图像转换回BGR格式以便显示
-    transformed = cv2.cvtColor(transformed, cv2.COLOR_GRAY2BGR)
+        # 将变换后的图像转换回BGR格式以便显示
+        transformed_bgr = cv2.cvtColor(transformed, cv2.COLOR_GRAY2BGR)
 
-    return transformed
+        return transformed_bgr
+    except Exception as e:
+        st.error(f"线性变换错误: {str(e)}")
+        return image
 
 def apply_sampling(image, sample_ratio):
-    """应用图像采样"""
-    # 转换为灰度图像
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    """应用图像采样 - 修复版本"""
+    try:
+        # 确保图像是3通道的
+        if len(image.shape) == 2:
+            gray = image
+            image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            image_bgr = image
 
-    # 获取原始图像尺寸
-    height, width = gray.shape
+        # 获取原始图像尺寸
+        height, width = gray.shape
 
-    # 计算采样后的图像尺寸
-    sampled_height = height // sample_ratio
-    sampled_width = width // sample_ratio
+        # 计算采样后的图像尺寸
+        sampled_height = height // sample_ratio
+        sampled_width = width // sample_ratio
 
-    # 采样后的图像
-    sampled = cv2.resize(gray, (sampled_width, sampled_height), interpolation=cv2.INTER_NEAREST)
+        # 采样后的图像
+        sampled = cv2.resize(gray, (sampled_width, sampled_height), interpolation=cv2.INTER_NEAREST)
 
-    # 将采样后的图像转换回BGR格式以便显示
-    sampled = cv2.cvtColor(sampled, cv2.COLOR_GRAY2BGR)
+        # 将采样后的图像转换回BGR格式以便显示
+        sampled_bgr = cv2.cvtColor(sampled, cv2.COLOR_GRAY2BGR)
 
-    return sampled
+        return sampled_bgr
+    except Exception as e:
+        st.error(f"采样处理错误: {str(e)}")
+        return image
 
 def apply_quantization(image, quantization_level):
-    """应用图像量化"""
-    # 转换为灰度图像
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    """应用图像量化 - 修复版本"""
+    try:
+        # 确保图像是3通道的
+        if len(image.shape) == 2:
+            gray = image
+            image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            image_bgr = image
 
-    # 量化
-    quantized = np.uint8(np.floor(gray / (256 / quantization_level)) * (256 / quantization_level))
+        # 量化
+        quantized = np.uint8(np.floor(gray / (256 / quantization_level)) * (256 / quantization_level))
 
-    # 将量化后的图像转换回BGR格式以便显示
-    quantized = cv2.cvtColor(quantized, cv2.COLOR_GRAY2BGR)
+        # 将量化后的图像转换回BGR格式以便显示
+        quantized_bgr = cv2.cvtColor(quantized, cv2.COLOR_GRAY2BGR)
 
-    return quantized
+        return quantized_bgr
+    except Exception as e:
+        st.error(f"量化处理错误: {str(e)}")
+        return image
 
 def apply_rgb_segmentation(image, lower_thresh, upper_thresh):
-    """应用RGB分割"""
-    # 创建一个掩码，其中满足阈值条件的像素为白色，其余为黑色
-    lower = np.array([lower_thresh, lower_thresh, lower_thresh])
-    upper = np.array([upper_thresh, upper_thresh, upper_thresh])
-    mask = cv2.inRange(image, lower, upper)
+    """应用RGB分割 - 修复版本"""
+    try:
+        # 确保图像是3通道的
+        if len(image.shape) == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
-    # 应用掩码到原始图像
-    segmented = cv2.bitwise_and(image, image, mask=mask)
+        # 创建一个掩码，其中满足阈值条件的像素为白色，其余为黑色
+        lower = np.array([lower_thresh, lower_thresh, lower_thresh])
+        upper = np.array([upper_thresh, upper_thresh, upper_thresh])
+        mask = cv2.inRange(image, lower, upper)
 
-    return segmented
+        # 应用掩码到原始图像
+        segmented = cv2.bitwise_and(image, image, mask=mask)
+
+        return segmented
+    except Exception as e:
+        st.error(f"RGB分割错误: {str(e)}")
+        return image
 
 # 渲染侧边栏
 def render_sidebar():
@@ -1002,7 +894,7 @@ tab_names = [
 
 tabs = st.tabs(tab_names)
 
-# 图像增强选项卡（保持不变）
+# 图像增强选项卡
 with tabs[0]:
     st.markdown("### 🔬 图像增强处理")
     
@@ -1067,7 +959,345 @@ with tabs[0]:
     else:
         st.info("请上传图像文件开始处理")
 
-# 其他图像处理选项卡保持不变...
+# 边缘检测选项卡
+with tabs[1]:
+    st.markdown("### 📐 边缘检测处理")
+    
+    # 思政教育卡片
+    st.markdown("""
+    <div class='ideology-card'>
+        <h4>🎯 思政关联：实事求是的科学态度</h4>
+        <p style='text-align: left;'>
+        <strong>边缘检测算法</strong>体现了<strong style='color: #dc2626;'>实事求是</strong>的科学态度，
+        通过精确的数学计算和算法分析，客观地提取图像特征。这体现了科学研究的严谨性和客观性，
+        培养我们在技术实践中坚持真理、尊重事实的科学精神。
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader(
+        "📤 选择图像文件", 
+        type=["jpg", "jpeg", "png"], 
+        key="edge_upload"
+    )
+
+    if uploaded_file is not None:
+        try:
+            image = Image.open(uploaded_file)
+            image = np.array(image)
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown('<div class="image-container">', unsafe_allow_html=True)
+                st.image(image, caption="原始图像", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class='info-card'>
+                    <h5>📊 图像信息</h5>
+                    <p><strong>尺寸：</strong>{image.shape[1]} × {image.shape[0]}</p>
+                    <p><strong>通道：</strong>{image.shape[2] if len(image.shape) > 2 else 1}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # 边缘检测选项
+            operator = st.selectbox(
+                "选择边缘检测算子",
+                ("Sobel", "Canny", "Laplacian"),
+                key="selectbox_edge"
+            )
+            
+            if st.button("检测边缘", key="button_edge", use_container_width=True):
+                with st.spinner("检测中..."):
+                    processed_image = apply_edge_detection(image, operator)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.image(image, caption="原始图像", use_container_width=True)
+                with col2:
+                    st.image(processed_image, caption=f"使用{operator}算子检测的边缘", use_container_width=True)
+                
+                provide_download_button(processed_image, f"edge_{operator}.jpg", "下载边缘检测结果")
+                    
+        except Exception as e:
+            st.error(f"边缘检测失败：{str(e)}")
+    else:
+        st.info("请上传图像文件开始边缘检测")
+
+# 线性变换选项卡
+with tabs[2]:
+    st.markdown("### 🔄 线性变换处理")
+    
+    # 思政教育卡片
+    st.markdown("""
+    <div class='ideology-card'>
+        <h4>🎯 思政关联：创新发展的时代担当</h4>
+        <p style='text-align: left;'>
+        <strong>线性变换技术</strong>体现了<strong style='color: #dc2626;'>创新发展</strong>的时代担当，
+        通过数学变换创造性地改善图像质量，这体现了在新时代背景下勇于创新、敢于突破的精神。
+        我们要在技术学习中培养创新思维，为科技进步贡献力量。
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader(
+        "📤 选择图像文件", 
+        type=["jpg", "jpeg", "png"], 
+        key="linear_upload"
+    )
+
+    if uploaded_file is not None:
+        try:
+            image = Image.open(uploaded_file)
+            image = np.array(image)
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown('<div class="image-container">', unsafe_allow_html=True)
+                st.image(image, caption="原始图像", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class='info-card'>
+                    <h5>📊 图像信息</h5>
+                    <p><strong>尺寸：</strong>{image.shape[1]} × {image.shape[0]}</p>
+                    <p><strong>通道：</strong>{image.shape[2] if len(image.shape) > 2 else 1}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # 线性变换参数
+            st.markdown("### 分段线性变换参数")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                a = st.slider("参数a", 0.0, 1.0, 0.2, 0.01, key="slider_a")
+            with col2:
+                b = st.slider("参数b", 0.0, 1.0, 0.1, 0.01, key="slider_b")
+            with col3:
+                c = st.slider("参数c", 0.0, 1.0, 0.8, 0.01, key="slider_c")
+            with col4:
+                d = st.slider("参数d", 0.0, 1.0, 0.9, 0.01, key="slider_d")
+            
+            if st.button("应用线性变换", key="button_linear", use_container_width=True):
+                with st.spinner("变换中..."):
+                    processed_image = apply_piecewise_linear_transformation(image, a, b, c, d)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.image(image, caption="原始图像", use_container_width=True)
+                with col2:
+                    st.image(processed_image, caption="分段线性变换后的图像", use_container_width=True)
+                
+                provide_download_button(processed_image, "linear_transformed.jpg", "下载变换结果")
+                    
+        except Exception as e:
+            st.error(f"线性变换失败：{str(e)}")
+    else:
+        st.info("请上传图像文件开始线性变换")
+
+# 图像锐化选项卡
+with tabs[3]:
+    st.markdown("### ✨ 图像锐化处理")
+    
+    # 思政教育卡片
+    st.markdown("""
+    <div class='ideology-card'>
+        <h4>🎯 思政关联：精益求精的工匠精神</h4>
+        <p style='text-align: left;'>
+        <strong>图像锐化技术</strong>体现了<strong style='color: #dc2626;'>精益求精</strong>的工匠精神，
+        通过增强图像细节，让模糊的图像变得清晰，这体现了对完美品质的不懈追求。
+        在技术实践中，我们要发扬这种注重细节、追求卓越的工作态度。
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader(
+        "📤 选择图像文件", 
+        type=["jpg", "jpeg", "png"], 
+        key="sharpen_upload"
+    )
+
+    if uploaded_file is not None:
+        try:
+            image = Image.open(uploaded_file)
+            image = np.array(image)
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown('<div class="image-container">', unsafe_allow_html=True)
+                st.image(image, caption="原始图像", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class='info-card'>
+                    <h5>📊 图像信息</h5>
+                    <p><strong>尺寸：</strong>{image.shape[1]} × {image.shape[0]}</p>
+                    <p><strong>通道：</strong>{image.shape[2] if len(image.shape) > 2 else 1}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # 锐化选项
+            filter_type = st.selectbox(
+                "选择滤波器类型",
+                ("中值滤波", "均值滤波"),
+                key="selectbox_sharpen"
+            )
+            
+            kernel_size = st.slider("滤波器大小", 3, 15, 5, 2, key="slider_sharpen")
+            
+            if st.button("锐化图像", key="button_sharpen", use_container_width=True):
+                with st.spinner("锐化中..."):
+                    processed_image = apply_filter(image, filter_type, kernel_size)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.image(image, caption="原始图像", use_container_width=True)
+                with col2:
+                    st.image(processed_image, caption=f"使用{filter_type}锐化后的图像", use_container_width=True)
+                
+                provide_download_button(processed_image, f"sharpened_{filter_type}.jpg", "下载锐化结果")
+                    
+        except Exception as e:
+            st.error(f"图像锐化失败：{str(e)}")
+    else:
+        st.info("请上传图像文件开始锐化处理")
+
+# 采样与量化选项卡
+with tabs[4]:
+    st.markdown("### 📊 采样与量化处理")
+    
+    # 思政教育卡片
+    st.markdown("""
+    <div class='ideology-card'>
+        <h4>🎯 思政关联：实事求是的科学态度</h4>
+        <p style='text-align: left;'>
+        <strong>采样与量化技术</strong>体现了<strong style='color: #dc2626;'>实事求是</strong>的科学态度，
+        通过精确控制采样率和量化等级，客观地分析图像质量变化。这体现了数字信号处理中的严谨性，
+        培养我们在技术实践中注重数据准确性、尊重客观规律的科学精神。
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader(
+        "📤 选择图像文件", 
+        type=["jpg", "jpeg", "png"], 
+        key="sampling_upload"
+    )
+
+    if uploaded_file is not None:
+        try:
+            image = Image.open(uploaded_file)
+            image = np.array(image)
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown('<div class="image-container">', unsafe_allow_html=True)
+                st.image(image, caption="原始图像", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class='info-card'>
+                    <h5>📊 图像信息</h5>
+                    <p><strong>尺寸：</strong>{image.shape[1]} × {image.shape[0]}</p>
+                    <p><strong>通道：</strong>{image.shape[2] if len(image.shape) > 2 else 1}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # 采样与量化参数
+            st.markdown("### 采样与量化参数")
+            col1, col2 = st.columns(2)
+            with col1:
+                sample_ratio = st.slider("采样比例", 2, 10, 4, 1, key="slider_sample")
+            with col2:
+                quantization_level = st.slider("量化等级", 2, 256, 64, 2, key="slider_quant")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("应用采样", key="button_sample", use_container_width=True):
+                    with st.spinner("采样中..."):
+                        sampled_image = apply_sampling(image, sample_ratio)
+                    
+                    st.image(sampled_image, caption=f"采样比例 {sample_ratio}:1 的图像", use_container_width=True)
+                    provide_download_button(sampled_image, f"sampled_{sample_ratio}.jpg", "下载采样结果")
+            
+            with col2:
+                if st.button("应用量化", key="button_quant", use_container_width=True):
+                    with st.spinner("量化中..."):
+                        quantized_image = apply_quantization(image, quantization_level)
+                    
+                    st.image(quantized_image, caption=f"量化等级 {quantization_level} 的图像", use_container_width=True)
+                    provide_download_button(quantized_image, f"quantized_{quantization_level}.jpg", "下载量化结果")
+                    
+        except Exception as e:
+            st.error(f"采样量化失败：{str(e)}")
+    else:
+        st.info("请上传图像文件开始采样与量化")
+
+# 彩色图像分割选项卡
+with tabs[5]:
+    st.markdown("### 🎨 彩色图像分割")
+    
+    # 思政教育卡片
+    st.markdown("""
+    <div class='ideology-card'>
+        <h4>🎯 思政关联：创新发展的时代担当</h4>
+        <p style='text-align: left;'>
+        <strong>彩色图像分割技术</strong>体现了<strong style='color: #dc2626;'>创新发展</strong>的时代担当，
+        通过智能算法将复杂图像分解为有意义的区域，这体现了人工智能时代的创新思维。
+        我们要在技术学习中培养创新意识，为智能图像处理技术的发展贡献力量。
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader(
+        "📤 选择图像文件", 
+        type=["jpg", "jpeg", "png"], 
+        key="segmentation_upload"
+    )
+
+    if uploaded_file is not None:
+        try:
+            image = Image.open(uploaded_file)
+            image = np.array(image)
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown('<div class="image-container">', unsafe_allow_html=True)
+                st.image(image, caption="原始图像", use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class='info-card'>
+                    <h5>📊 图像信息</h5>
+                    <p><strong>尺寸：</strong>{image.shape[1]} × {image.shape[0]}</p>
+                    <p><strong>通道：</strong>{image.shape[2] if len(image.shape) > 2 else 1}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # 分割参数
+            st.markdown("### RGB分割参数")
+            col1, col2 = st.columns(2)
+            with col1:
+                lower_thresh = st.slider("下限阈值", 0, 255, 50, key="slider_lower")
+            with col2:
+                upper_thresh = st.slider("上限阈值", 0, 255, 200, key="slider_upper")
+            
+            if st.button("应用RGB分割", key="button_segmentation", use_container_width=True):
+                with st.spinner("分割中..."):
+                    segmented_image = apply_rgb_segmentation(image, lower_thresh, upper_thresh)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.image(image, caption="原始图像", use_container_width=True)
+                with col2:
+                    st.image(segmented_image, caption=f"RGB分割结果 [{lower_thresh}-{upper_thresh}]", use_container_width=True)
+                
+                provide_download_button(segmented_image, "rgb_segmented.jpg", "下载分割结果")
+                    
+        except Exception as e:
+            st.error(f"图像分割失败：{str(e)}")
+    else:
+        st.info("请上传图像文件开始彩色图像分割")
 
 # 实验提交选项卡 - 所有用户都可以访问
 with tabs[6]:
@@ -1238,34 +1468,14 @@ with tabs[6]:
                             st.markdown("**📝 提交内容:**")
                             st.text_area("内容", sub[4], height=150, key=f"content_{sub[0]}", disabled=True)
                             
-                            # 显示提交的文件 - 添加预览功能
+                            # 显示提交的文件 - 简化版本，只显示文件名
                             if len(sub) > 10 and sub[10]:  # file_names字段
                                 file_list = sub[10].split(',') if sub[10] else []
                                 if file_list:
                                     st.markdown("**📎 提交的文件:**")
                                     for filename in file_list:
                                         if filename.strip():
-                                            file_path = get_file_path(sub[0], st.session_state.username, filename.strip())
-                                            if os.path.exists(file_path):
-                                                # 文件预览区域
-                                                st.markdown(f'<div class="file-preview">', unsafe_allow_html=True)
-                                                st.markdown(f'<div class="preview-header"><strong>📄 {filename}</strong></div>', unsafe_allow_html=True)
-                                                
-                                                # 预览内容
-                                                preview_file_content(file_path, filename)
-                                                
-                                                # 下载按钮
-                                                with open(file_path, "rb") as file:
-                                                    file_data = file.read()
-                                                    st.download_button(
-                                                        label=f"📥 下载 {filename}",
-                                                        data=file_data,
-                                                        file_name=filename,
-                                                        mime="application/octet-stream",
-                                                        key=f"download_{sub[0]}_{filename}",
-                                                        use_container_width=True
-                                                    )
-                                                st.markdown('</div>', unsafe_allow_html=True)
+                                            st.markdown(f"- {filename}")
                                     
                                     # 提供打包下载
                                     zip_path = create_zip_file(sub[0], st.session_state.username)
@@ -1298,7 +1508,31 @@ with tabs[6]:
                             st.markdown(f"<span class='{status_info[1]} status-badge'>{status_info[0]}</span>", unsafe_allow_html=True)
                             st.markdown(f"**🕒 提交时间:** {sub[5]}")
                             st.markdown(f"**🔢 提交ID:** `{sub[0]}`")
-                            
+
+                            # 添加分数显示（美观版本）
+                            if sub[6] == 'graded' and sub[9]:  # 已评分且允许查看
+                                score_color = "#10b981" if sub[8] >= 80 else "#f59e0b" if sub[8] >= 60 else "#ef4444"
+                                st.markdown(f"""
+                                <div style='background: {score_color}; color: white; padding: 8px 16px; border-radius: 20px; 
+                                            font-weight: bold; text-align: center; margin: 10px 0;'>
+                                    🎯 得分: {sub[8]}/100
+                                </div>
+                                """, unsafe_allow_html=True)
+                            elif sub[6] == 'graded' and not sub[9]:  # 已评分但不允许查看
+                                st.markdown("""
+                                <div style='background: #6b7280; color: white; padding: 8px 16px; border-radius: 20px; 
+                                            font-weight: bold; text-align: center; margin: 10px 0;'>
+                                    🔒 得分暂不可查看
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:  # 待批改状态
+                                st.markdown("""
+                                <div style='background: #f59e0b; color: white; padding: 8px 16px; border-radius: 20px; 
+                                            font-weight: bold; text-align: center; margin: 10px 0;'>
+                                    ⏳ 得分待批改
+                                </div>
+                                """, unsafe_allow_html=True)
+
                             if sub[6] == 'pending':
                                 if st.button("撤回", key=f"withdraw_{sub[0]}", use_container_width=True):
                                     success, msg = withdraw_experiment(sub[0], st.session_state.username)
@@ -1394,34 +1628,14 @@ with tabs[6]:
                         st.markdown("**📝 提交内容:**")
                         st.text_area("内容", sub[4], height=150, key=f"teacher_content_{sub[0]}", disabled=True)
                         
-                        # 显示提交的文件
+                        # 显示提交的文件 - 简化版本
                         if len(sub) > 10 and sub[10]:
                             file_list = sub[10].split(',') if sub[10] else []
                             if file_list:
                                 st.markdown("**📎 提交的文件:**")
                                 for filename in file_list:
                                     if filename.strip():
-                                        file_path = get_file_path(sub[0], sub[1], filename.strip())
-                                        if os.path.exists(file_path):
-                                            # 文件预览区域
-                                            st.markdown(f'<div class="file-preview">', unsafe_allow_html=True)
-                                            st.markdown(f'<div class="preview-header"><strong>📄 {filename}</strong></div>', unsafe_allow_html=True)
-                                            
-                                            # 预览内容
-                                            preview_file_content(file_path, filename)
-                                            
-                                            # 下载按钮
-                                            with open(file_path, "rb") as file:
-                                                file_data = file.read()
-                                                st.download_button(
-                                                    label=f"📥 下载 {filename}",
-                                                    data=file_data,
-                                                    file_name=filename,
-                                                    mime="application/octet-stream",
-                                                    key=f"teacher_download_{sub[0]}_{filename}",
-                                                    use_container_width=True
-                                                )
-                                            st.markdown('</div>', unsafe_allow_html=True)
+                                        st.markdown(f"- {filename}")
                                 
                                 # 提供打包下载
                                 zip_path = create_zip_file(sub[0], sub[1])

@@ -1064,8 +1064,38 @@ def render_teacher_interface():
         col1, col2, col3 = st.columns(3)
         with col1:
             filter_status = st.selectbox("筛选状态", ["全部", "待审核", "已审核", "已退回"])
+
         with col2:
-            filter_student = st.text_input("筛选学生", placeholder="输入学生用户名")
+            filter_student = st.text_input("筛选学生", placeholder="输入学生用户名", key="teacher_student_filter")
+            
+            # 添加筛选逻辑 - 使用真实数据
+            if filter_student:
+                st.info(f"🔍 正在筛选学生: {filter_student}")
+                
+                # 获取所有学生
+                all_students = get_all_students()
+                
+                # 筛选匹配的学生
+                matched_students = [student for student in all_students if filter_student.lower() in student.lower()]
+                
+                if matched_students:
+                    st.success(f"找到 {len(matched_students)} 名学生")
+                    
+                    # 显示匹配的学生信息
+                    for student in matched_students:
+                        # 获取该学生的统计信息
+                        student_stats = get_student_stats(student)
+                        
+                        with st.container():
+                            col_a, col_b, col_c = st.columns([3, 2, 2])
+                            with col_a:
+                                st.write(f"👤 **{student}**")
+                            with col_b:
+                                st.write(f"提交: {student_stats['total_reflections']}篇")
+                            with col_c:
+                                st.write(f"平均分: {student_stats['avg_score']}")
+                else:
+                    st.warning(f"未找到学生: {filter_student}")
         with col3:
             sort_option = st.selectbox("排序方式", ["最新提交", "最早提交", "按分数排序"])
         

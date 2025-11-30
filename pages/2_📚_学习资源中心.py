@@ -7,7 +7,7 @@ import base64
 import pandas as pd
 from datetime import datetime
 import webbrowser  # 新增：用于打开外部链接
-
+import matplotlib.pyplot as plt
 # 页面配置
 st.set_page_config(
     page_title="学习资源中心",
@@ -296,19 +296,62 @@ def apply_edge_detection(image, operator):
     elif operator == "LoG":
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)
         edge = cv2.Laplacian(blurred, cv2.CV_64F).astype(np.uint8)
-    edge = cv2.cvtColor(edge, cv2.COLOR_GRAY2BGR)
+    
+    # 确保返回的是3通道图像用于显示
+    if len(edge.shape) == 2:
+        edge = cv2.cvtColor(edge, cv2.COLOR_GRAY2BGR)
     return edge
 
 
 def apply_filter(image, filter_type, kernel_size):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if filter_type == "中值滤波":
-        filtered = cv2.medianBlur(gray, kernel_size)
-    elif filter_type == "均值滤波":
-        filtered = cv2.blur(gray, (kernel_size, kernel_size))
-    filtered = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
-    return filtered
-
+    """
+    应用图像滤波处理
+    
+    参数:
+        image: 输入图像 (BGR格式)
+        filter_type: 滤波类型 ["中值滤波", "均值滤波", "高斯滤波"]
+        kernel_size: 核大小 (3-15之间的奇数)
+    
+    返回:
+        filtered: 滤波后的图像
+    """
+    # 输入验证
+    if image is None or image.size == 0:
+        raise ValueError("输入图像无效")
+    
+    # 确保核大小为奇数且在有效范围内
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+    
+    # 限制核大小范围
+    kernel_size = max(3, min(15, kernel_size))
+    
+    try:
+        if filter_type == "中值滤波":
+            # 中值滤波：对彩色图像的每个通道分别处理
+            filtered = cv2.medianBlur(image, kernel_size)
+            
+        elif filter_type == "均值滤波":
+            # 均值滤波：简单的平均滤波
+            filtered = cv2.blur(image, (kernel_size, kernel_size))
+            
+        elif filter_type == "高斯滤波":
+            # 高斯滤波：使用高斯核进行加权平均
+            # 高斯滤波的核大小必须是正奇数
+            if kernel_size < 1:
+                kernel_size = 3
+            filtered = cv2.GaussianBlur(image, (kernel_size, kernel_size), 0)
+            
+        else:
+            # 未知滤波类型，返回原图
+            filtered = image.copy()
+            
+        return filtered
+        
+    except Exception as e:
+        # 如果滤波失败，返回原图并抛出错误
+        st.error(f"滤波处理失败: {str(e)}")
+        return image.copy()
 
 def get_image_download_link(img, filename, text):
     buffered = io.BytesIO()
@@ -769,10 +812,11 @@ def main():
             - 渐进式编码模式
             """)
 
+
     with tab3:
         st.markdown('<div class="section-title">🛠️ 在线实践工具</div>', unsafe_allow_html=True)
 
-        # 边缘检测工具（保持原功能，不修改）
+        # 边缘检测工具
         with st.expander("🔍 边缘检测工具", expanded=True):
             col1, col2 = st.columns(2)
 
@@ -783,18 +827,25 @@ def main():
 
                 if uploaded_file is not None:
                     image = Image.open(uploaded_file)
-                    image = np.array(image)
-                    st.image(image, caption="原始图像", use_container_width=True)
+                    image_np = np.array(image)
+                    # 确保图像是BGR格式（OpenCV标准）
+                    if len(image_np.shape) == 3:
+                        image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+                    st.image(cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB), caption="原始图像", use_container_width=True)
 
                     if st.button("执行边缘检测", key="edge_btn", use_container_width=True):
                         with st.spinner("正在处理..."):
-                            result = apply_edge_detection(image, operator)
-                            st.session_state['edge_result'] = result
+                            try:
+                                result = apply_edge_detection(image_np, operator)
+                                st.session_state['edge_result'] = result
+                            except Exception as e:
+                                st.error(f"处理出错: {str(e)}")
 
             with col2:
                 if uploaded_file is not None and 'edge_result' in st.session_state:
-                    st.image(st.session_state['edge_result'], caption=f"{operator}边缘检测结果",
-                             use_container_width=True)
+                    # 转换回RGB格式用于显示
+                    display_result = cv2.cvtColor(st.session_state['edge_result'], cv2.COLOR_BGR2RGB)
+                    st.image(display_result, caption=f"{operator}边缘检测结果", use_container_width=True)
                     st.markdown(get_image_download_link(
                         st.session_state['edge_result'],
                         f"edge_detection_{operator}.jpg",
@@ -803,28 +854,36 @@ def main():
                 else:
                     st.info("👆 请上传图像并点击处理按钮")
 
-        # 图像滤波工具（保持原功能，不修改）
+        # 图像滤波工具
         with st.expander("🔄 图像滤波工具"):
             col1, col2 = st.columns(2)
 
             with col1:
                 uploaded_file = st.file_uploader("上传图像", type=["jpg", "jpeg", "png"], key="filter_upload")
-                filter_type = st.selectbox("选择滤波器类型", ["中值滤波", "均值滤波"], key="filter_type")
+                filter_type = st.selectbox("选择滤波器类型", ["中值滤波", "均值滤波", "高斯滤波"], key="filter_type")
                 kernel_size = st.slider("核大小", 3, 15, 3, 2, key="kernel_size")
 
                 if uploaded_file is not None:
                     image = Image.open(uploaded_file)
-                    image = np.array(image)
-                    st.image(image, caption="原始图像", use_container_width=True)
+                    image_np = np.array(image)
+                    # 确保图像是BGR格式
+                    if len(image_np.shape) == 3:
+                        image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+                    st.image(cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB), caption="原始图像", use_container_width=True)
 
                     if st.button("执行滤波处理", key="filter_btn", use_container_width=True):
                         with st.spinner("正在处理..."):
-                            result = apply_filter(image, filter_type, kernel_size)
-                            st.session_state['filter_result'] = result
+                            try:
+                                result = apply_filter(image_np, filter_type, kernel_size)
+                                st.session_state['filter_result'] = result
+                            except Exception as e:
+                                st.error(f"处理出错: {str(e)}")
 
             with col2:
                 if uploaded_file is not None and 'filter_result' in st.session_state:
-                    st.image(st.session_state['filter_result'], caption=f"{filter_type}结果", use_container_width=True)
+                    # 转换回RGB格式用于显示
+                    display_result = cv2.cvtColor(st.session_state['filter_result'], cv2.COLOR_BGR2RGB)
+                    st.image(display_result, caption=f"{filter_type}结果", use_container_width=True)
                     st.markdown(get_image_download_link(
                         st.session_state['filter_result'],
                         f"{filter_type}_{kernel_size}x{kernel_size}.jpg",
@@ -832,7 +891,6 @@ def main():
                     ), unsafe_allow_html=True)
                 else:
                     st.info("👆 请上传图像并点击处理按钮")
-
     with tab4:
         st.markdown('<div class="section-title">💾 学习资源下载</div>', unsafe_allow_html=True)
 
